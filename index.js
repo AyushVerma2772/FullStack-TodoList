@@ -1,15 +1,20 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const { join } = require("path");
-const methodOverride = require('method-override');
-const todoRoutes = require("./routes/todo");
+const todosRoutes = require("./routes/todos");
+const authRoutes = require("./routes/auth");
+const mongoose = require("mongoose");
+const passport = require("passport");
+const session = require("express-session");
+const LocalStrategy = require("passport-local");
+const UserModel = require("./models/UserModel");
+const methodOverride = require('method-override')
 
 
 const app = express();
 
 
-// create connection with mongoDB
-mongoose.connect('mongodb://127.0.0.1:27017/mytodos')
+// Connection with mongoDB
+mongoose.connect('mongodb://127.0.0.1:27017/myTodos')
     .then(() => console.log("DB connected"))
     .catch(err => console.log(err))
 
@@ -19,14 +24,35 @@ app.set("view engine", "ejs");
 app.set("views", join(__dirname, "views"));
 app.use(express.static(join(__dirname, "public")));
 
-
-// parse the body
 app.use(express.urlencoded());
-// method override
-app.use(methodOverride('_method'));
-// set route
-app.use(todoRoutes);
+app.use(methodOverride('_method'))
 
+// use session
+app.use(session({
+    secret: 'keyboard cat',
+    resave: false,
+    saveUninitialized: true,
+    // cookie: { secure: true }
+}))
+
+
+// initialize session
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.serializeUser(UserModel.serializeUser());
+passport.deserializeUser(UserModel.deserializeUser());
+passport.use(new LocalStrategy(UserModel.authenticate()));
+
+
+app.use((req, res, next) => {
+    res.locals.currentUser = req.user;
+    next();
+})
+
+// use Routes
+app.use(authRoutes);
+app.use(todosRoutes);
 
 
 const PORT = 8080;
